@@ -14,8 +14,11 @@ COPY . .
 # Variável para banco SQLite
 ENV STORAGE_DB_PATH=/app/posts.db
 
+# Define default PORT for Render
+ENV PORT 8000
+
 # Porta padrão
 EXPOSE 8000
 
 # Comando para rodar a aplicação
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT}"]
