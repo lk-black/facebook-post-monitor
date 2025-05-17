@@ -6,10 +6,41 @@ Por padrão, a aplicação roda em:
 ```
 https://facebook-post-monitor.onrender.com
 ```
+---
 
-A documentação interativa está disponível em:
+## Autenticação
+
+Para usar os endpoints protegidos (posts e webhook), é necessário criar usuário e obter um token JWT:
+
+### 1. Registro de usuário
+
+**POST** `/register`
+
+- Form data (application/x-www-form-urlencoded):
+  - `username` (email)
+  - `password`
+- Resposta 201 Created:
+  ```json
+  { "msg": "User registered", "user_id": 1 }
+  ```
+- Erro 400: email já cadastrado.
+
+### 2. Login
+
+**POST** `/login`
+
+- Form data (application/x-www-form-urlencoded):
+  - `username` (email)
+  - `password`
+- Resposta 200 OK:
+  ```json
+  { "access_token": "<JWT>", "token_type": "bearer" }
+  ```
+- Erro 400: credenciais incorretas.
+
+**Uso do token:** inclua o header HTTP:
 ```
-https://facebook-post-monitor.onrender.com/docs
+Authorization: Bearer <access_token>
 ```
 
 ---
@@ -21,6 +52,8 @@ https://facebook-post-monitor.onrender.com/docs
 **POST** `/posts`
 
 - Descrição: Valida e adiciona um post ativo do Facebook à lista de monitoramento.
+- Cabeçalhos:
+  - `Authorization: Bearer <token>`
 - Request Body (JSON):
   ```json
   {
@@ -45,6 +78,8 @@ https://facebook-post-monitor.onrender.com/docs
 **GET** `/posts`
 
 - Descrição: Retorna todas as URLs de posts que estão sendo monitorados.
+- Cabeçalhos:
+  - `Authorization: Bearer <token>`
 - Resposta (200 OK):
   ```json
   {
@@ -62,6 +97,8 @@ https://facebook-post-monitor.onrender.com/docs
 **POST** `/config/webhook`
 
 - Descrição: Define a URL de callback para notificações quando um post ativo se torna inativo.
+- Cabeçalhos:
+  - `Authorization: Bearer <token>`
 - Request Body (JSON):
   ```json
   {
@@ -82,6 +119,8 @@ https://facebook-post-monitor.onrender.com/docs
 **GET** `/config/webhook`
 
 - Descrição: Retorna a URL de webhook configurada.
+- Cabeçalhos:
+  - `Authorization: Bearer <token>`
 - Resposta (200 OK):
   ```json
   {
@@ -107,26 +146,43 @@ https://facebook-post-monitor.onrender.com/docs
 
 ## Exemplos de Uso
 
-1. Adicionar post:
+1. Registro de usuário:
+   ```bash
+   curl -X POST https://facebook-post-monitor.onrender.com/register \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=meuemail@example.com&password=minhasenha"
+   ```
+
+2. Login:
+   ```bash
+   curl -X POST https://facebook-post-monitor.onrender.com/login \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=meuemail@example.com&password=minhasenha"
+   ```
+
+3. Adicionar post:
    ```bash
    curl -X POST https://facebook-post-monitor.onrender.com/posts \
      -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <access_token>" \
      -d '{"url":"https://www.facebook.com/61576190405241/posts/122102364680873013/"}'
    ```
 
-2. Listar posts:
+4. Listar posts:
    ```bash
-   curl https://facebook-post-monitor.onrender.com/posts
+   curl https://facebook-post-monitor.onrender.com/posts \
+     -H "Authorization: Bearer <access_token>"
    ```
 
-3. Configurar webhook:
+5. Configurar webhook:
    ```bash
    curl -X POST https://facebook-post-monitor.onrender.com/config/webhook \
      -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <access_token>" \
      -d '{"url":"https://meu-servico.com/webhook"}'
    ```
 
-4. Receber notificação (exemplo de payload recebido no seu endpoint):
+6. Receber notificação (exemplo de payload recebido no seu endpoint):
    ```json
    {
      "url": "https://www.facebook.com/.../posts/.../",
