@@ -11,13 +11,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia código
 COPY . .
 
-# Variável para banco SQLite
-ENV STORAGE_DB_PATH=/app/posts.db
+# Cria o diretório onde o disco será montado
+RUN mkdir -p /data
 
-# Define default PORT for Render
-ENV PORT 8000
+# Aponta o SQLite para dentro do disco montado
+ENV STORAGE_DB_PATH=/data/posts.db
 
-# Porta padrão
+# Render expõe a $PORT; sobra definir uma default
+ENV PORT=8000
+
+# Porta padrãoS
 EXPOSE 8000
 
 # Comando para rodar a aplicação
