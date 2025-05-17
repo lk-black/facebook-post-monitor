@@ -90,15 +90,17 @@ async def http_error_handler(request, exc):
 storage = PostStorage()
 scheduler = BackgroundScheduler()
 
+# JSON body para registro/login espera { username: email, password }
+class UserCreate(BaseModel):
+    username: EmailStr
+    password: str
+
+# Define schemas para endpoints
 class PostURL(BaseModel):
     url: str
 
 class WebhookConfig(BaseModel):
     url: HttpUrl
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
 
 @app.get("/health", status_code=200)
 def health():
@@ -111,7 +113,7 @@ def health():
 def register(user: UserCreate):
     try:
         hashed = get_password_hash(user.password)
-        user_id = storage.register_user(user.email, hashed)
+        user_id = storage.register_user(user.username, hashed)
         return {"msg": "User registered", "user_id": user_id}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -125,8 +127,8 @@ def login(request: Request,
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("application/json"):
         if not user:
-            raise HTTPException(status_code=422, detail="JSON body com email e password é obrigatório")
-        email, password = user.email, user.password
+            raise HTTPException(status_code=422, detail="JSON body com username e password é obrigatório")
+        email, password = user.username, user.password
     else:
         # OAuth2PasswordRequestForm já valida presença de username e password
         email, password = form_data.username, form_data.password
