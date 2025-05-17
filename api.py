@@ -1,13 +1,13 @@
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Request, Body
+from fastapi import FastAPI, HTTPException, Depends, Request, Body, Form
 from pydantic import BaseModel, HttpUrl, EmailStr
 from storage import PostStorage
 from fb_api import get_facebook_post_status
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests  # para envio de webhook
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -45,13 +45,19 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
+    """Valida JWT e retorna usuário ou HTTP 401 com mensagem amigável."""
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Token inválido ou expirado",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if not email:
             raise credentials_exception
     except JWTError:
+        # Já retorna mensagem amigável
         raise credentials_exception
     user = storage.get_user(email)
     if not user:
@@ -111,10 +117,27 @@ def register(user: UserCreate):
         raise HTTPException(status_code=400, detail="Email already registered")
 
 @app.post("/login")
-def login(user: UserCreate):
-    auth = authenticate_user(user.email, user.password)
+def login(request: Request,
+          form_data: OAuth2PasswordRequestForm = Depends(),
+          user: UserCreate = Body(None)):
+    """Login de usuário: aceita form-data (OAuth2) para Swagger e JSON para front-end"""
+    # Determina credenciais conforme tipo de conteúdo
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("application/json"):
+        if not user:
+            raise HTTPException(status_code=422, detail="JSON body com email e password é obrigatório")
+        email, password = user.email, user.password
+    else:
+        # OAuth2PasswordRequestForm já valida presença de username e password
+        email, password = form_data.username, form_data.password
+
+    auth = authenticate_user(email, password)
     if not auth:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     access_token = create_access_token(data={"sub": auth["email"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
