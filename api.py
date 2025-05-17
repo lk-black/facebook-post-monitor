@@ -138,7 +138,10 @@ def login(request: Request,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    access_token = create_access_token(data={"sub": auth["email"]})
+    access_token = create_access_token(data={
+        "sub": auth["email"],  # mantém email como subject
+        "user_id": auth["id"]  # adiciona ID do usuário
+    })
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/posts", status_code=201)
