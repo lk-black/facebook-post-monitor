@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  facebook-monitor:
+    build: .
+    container_name: facebook-monitor
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - STORAGE_DB_PATH=/data/posts.db
+      - PORT=8000
+    volumes:
+      - ./data:/data
+    ports:
+      - '8000:8000'
