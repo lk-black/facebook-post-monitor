@@ -2,12 +2,12 @@ import os
 import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, EmailStr
 from storage import PostStorage
 from fb_api import get_facebook_post_status
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests  # para envio de webhook
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -80,6 +80,10 @@ class PostURL(BaseModel):
 class WebhookConfig(BaseModel):
     url: HttpUrl
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
 @app.get("/health", status_code=200)
 def health():
     """
@@ -88,20 +92,20 @@ def health():
     return {"status": "healthy"}
 
 @app.post("/register", status_code=201)
-def register(form_data: OAuth2PasswordRequestForm = Depends()):
+def register(user: UserCreate):
     try:
-        hashed = get_password_hash(form_data.password)
-        user_id = storage.register_user(form_data.username, hashed)
+        hashed = get_password_hash(user.password)
+        user_id = storage.register_user(user.email, hashed)
         return {"msg": "User registered", "user_id": user_id}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email already registered")
 
 @app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
+def login(user: UserCreate):
+    auth = authenticate_user(user.email, user.password)
+    if not auth:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    access_token = create_access_token(data={"sub": user["email"]})
+    access_token = create_access_token(data={"sub": auth["email"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/posts", status_code=201)
