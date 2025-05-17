@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import sqlite3
+from fastapi.middleware.cors import CORSMiddleware
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -60,6 +61,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = FastAPI(title="Facebook Monitor API")
+
+# CORS: permite Preflight e chamadas de outras origens
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 storage = PostStorage()
 scheduler = BackgroundScheduler()
 
