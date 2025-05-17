@@ -94,7 +94,7 @@ def check_all_posts():
 
 @app.on_event("startup")
 async def start_scheduler():
-    scheduler.add_job(check_all_posts, 'interval', minutes=5)
+    scheduler.add_job(check_all_posts, 'interval', minutes=3)
     scheduler.start()
     logging.info("Scheduler iniciado.")
 

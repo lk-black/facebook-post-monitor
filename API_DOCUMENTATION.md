@@ -3,15 +3,13 @@
 ## Base URL
 
 Por padrão, a aplicação roda em:
-
 ```
-http://localhost:8000
+https://facebook-post-monitor.onrender.com
 ```
 
 A documentação interativa está disponível em:
-
 ```
-http://localhost:8000/docs
+https://facebook-post-monitor.onrender.com/docs
 ```
 
 ---
@@ -111,19 +109,19 @@ http://localhost:8000/docs
 
 1. Adicionar post:
    ```bash
-   curl -X POST http://localhost:8000/posts \
+   curl -X POST https://facebook-post-monitor.onrender.com/posts \
      -H "Content-Type: application/json" \
      -d '{"url":"https://www.facebook.com/61576190405241/posts/122102364680873013/"}'
    ```
 
 2. Listar posts:
    ```bash
-   curl http://localhost:8000/posts
+   curl https://facebook-post-monitor.onrender.com/posts
    ```
 
 3. Configurar webhook:
    ```bash
-   curl -X POST http://localhost:8000/config/webhook \
+   curl -X POST https://facebook-post-monitor.onrender.com/config/webhook \
      -H "Content-Type: application/json" \
      -d '{"url":"https://meu-servico.com/webhook"}'
    ```
