@@ -24,6 +24,13 @@ class PostURL(BaseModel):
 class WebhookConfig(BaseModel):
     url: HttpUrl
 
+@app.get("/health", status_code=200)
+def health():
+    """
+    Health check endpoint.
+    """
+    return {"status": "healthy"}
+
 @app.post("/posts", status_code=201)
 def add_post(post: PostURL):
     """
