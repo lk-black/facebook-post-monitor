@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Request, Body, Form
+from fastapi import FastAPI, HTTPException, Depends, Request, Body
 from pydantic import BaseModel, HttpUrl, EmailStr
 from storage import PostStorage
 from fb_api import get_facebook_post_status
@@ -102,41 +102,17 @@ def health():
     return {"status": "healthy"}
 
 @app.post("/register", status_code=201)
-def register(request: Request,
-             email_form: EmailStr = Form(None),
-             password_form: str = Form(None),
-             user: UserCreate = Body(None)):
-    # Suporta JSON ou form-data
-    if request.headers.get("content-type", "").startswith("application/json"):
-        if not user:
-            raise HTTPException(status_code=422, detail="JSON body com email e password é obrigatório")
-        email, password = user.email, user.password
-    else:
-        if not email_form or not password_form:
-            raise HTTPException(status_code=422, detail="Form data com username e password é obrigatório")
-        email, password = email_form, password_form
+def register(user: UserCreate):
     try:
-        hashed = get_password_hash(password)
-        user_id = storage.register_user(email, hashed)
+        hashed = get_password_hash(user.password)
+        user_id = storage.register_user(user.email, hashed)
         return {"msg": "User registered", "user_id": user_id}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email already registered")
 
 @app.post("/login")
-def login(request: Request,
-          email_form: EmailStr = Form(None),
-          password_form: str = Form(None),
-          user: UserCreate = Body(None)):
-    # Suporta JSON ou form-data
-    if request.headers.get("content-type", "").startswith("application/json"):
-        if not user:
-            raise HTTPException(status_code=422, detail="JSON body com email e password é obrigatório")
-        email, password = user.email, user.password
-    else:
-        if not email_form or not password_form:
-            raise HTTPException(status_code=422, detail="Form data com username e password é obrigatório")
-        email, password = email_form, password_form
-    auth = authenticate_user(email, password)
+def login(user: UserCreate):
+    auth = authenticate_user(user.email, user.password)
     if not auth:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     access_token = create_access_token(data={"sub": auth["email"]})
