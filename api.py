@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Request, Body, Form
+from fastapi import FastAPI, HTTPException, Depends, Body
 from pydantic import BaseModel, HttpUrl, EmailStr
 from storage import PostStorage
 from fb_api import get_facebook_post_status
@@ -110,40 +110,28 @@ def health():
     return {"status": "healthy"}
 
 @app.post("/register", status_code=201)
-def register(user: UserCreate):
+def register(user: UserCreate = Body(...)):
+    """Registro de usuário via JSON"""
+    email, password = user.username, user.password
     try:
-        hashed = get_password_hash(user.password)
-        user_id = storage.register_user(user.username, hashed)
-        return {"msg": "User registered", "user_id": user_id}
+        hashed = get_password_hash(password)
+        user_id = storage.register_user(email, hashed)
+        access_token = create_access_token(data={"sub": email, "user_id": user_id})
+        return {"msg": "User registered", "user_id": user_id, "access_token": access_token, "token_type": "bearer"}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email already registered")
 
 @app.post("/login")
-def login(request: Request,
-          form_data: OAuth2PasswordRequestForm = Depends(),
-          user: UserCreate = Body(None)):
-    """Login de usuário: aceita form-data (OAuth2) para Swagger e JSON para front-end"""
-    # Determina credenciais conforme tipo de conteúdo
-    content_type = request.headers.get("content-type", "")
-    if content_type.startswith("application/json"):
-        if not user:
-            raise HTTPException(status_code=422, detail="JSON body com username e password é obrigatório")
-        email, password = user.username, user.password
-    else:
-        # OAuth2PasswordRequestForm já valida presença de username e password
-        email, password = form_data.username, form_data.password
-
-    auth = authenticate_user(email, password)
+def login(user: UserCreate = Body(...)):
+    """Login de usuário via JSON"""
+    auth = authenticate_user(user.username, user.password)
     if not auth:
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    access_token = create_access_token(data={
-        "sub": auth["email"],  # mantém email como subject
-        "user_id": auth["id"]  # adiciona ID do usuário
-    })
+    access_token = create_access_token(data={"sub": auth["email"], "user_id": auth["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/posts", status_code=201)

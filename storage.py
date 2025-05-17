@@ -13,6 +13,14 @@ class PostStorage:
             db_path = os.getenv("STORAGE_DB_PATH", "posts.db")
         # permite uso em múltiplas threads
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        # Migration: ensure posts table has user_id column; if not, drop and recreate
+        cur = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'")
+        if cur.fetchone():
+            info = self._conn.execute("PRAGMA table_info(posts)").fetchall()
+            cols = [row[1] for row in info]
+            if 'user_id' not in cols:
+                # Drop legacy posts table and recreate new schema
+                self._conn.execute("DROP TABLE posts")
         # Tabelas para multi-usuário
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, password_hash TEXT)"
