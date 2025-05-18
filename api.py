@@ -195,12 +195,25 @@ def list_posts(current_user=Depends(get_current_user)):
 def delete_post(post_url: str = Path(..., description="URL do post para remover"), current_user=Depends(get_current_user)):
     """Remove um post monitorado da lista do usuário."""
     decoded_url = unquote(post_url)
+    # Remove espaços e normaliza
+    decoded_url = decoded_url.strip()
     # Normaliza para garantir que URLs com/sem barra final sejam tratadas como iguais
     candidates = [decoded_url]
     if decoded_url.endswith('/'):
         candidates.append(decoded_url.rstrip('/'))
     else:
         candidates.append(decoded_url + '/')
+    # Tenta remover ignorando query string e fragment
+    from urllib.parse import urlparse, urlunparse
+    for url in list(candidates):
+        parsed = urlparse(url)
+        url_no_query = urlunparse(parsed._replace(query='', fragment=''))
+        if url_no_query not in candidates:
+            candidates.append(url_no_query)
+        if url_no_query.endswith('/') and url_no_query.rstrip('/') not in candidates:
+            candidates.append(url_no_query.rstrip('/'))
+        elif not url_no_query.endswith('/') and (url_no_query + '/') not in candidates:
+            candidates.append(url_no_query + '/')
     removed = False
     for url in candidates:
         if storage.remove(url, current_user["id"]):
