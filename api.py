@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Body
+from fastapi import FastAPI, HTTPException, Depends, Body, Path
 from pydantic import BaseModel, HttpUrl, EmailStr
 from storage import PostStorage
 from fb_api import get_facebook_post_status
@@ -22,6 +22,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
@@ -42,6 +43,12 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+    to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -117,7 +124,8 @@ def register(user: UserCreate = Body(...)):
         hashed = get_password_hash(password)
         user_id = storage.register_user(email, hashed)
         access_token = create_access_token(data={"sub": email, "user_id": user_id})
-        return {"msg": "User registered", "user_id": user_id, "access_token": access_token, "token_type": "bearer"}
+        refresh_token = create_refresh_token(data={"sub": email, "user_id": user_id})
+        return {"msg": "User registered", "user_id": user_id, "access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -132,6 +140,29 @@ def login(user: UserCreate = Body(...)):
             headers={"WWW-Authenticate": "Bearer"}
         )
     access_token = create_access_token(data={"sub": auth["email"], "user_id": auth["id"]})
+    refresh_token = create_refresh_token(data={"sub": auth["email"], "user_id": auth["id"]})
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+@app.post("/refresh_token")
+def refresh_token(token: str = Body(..., embed=True)):
+    """Gera novo access_token a partir de um refresh_token válido."""
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Refresh token inválido ou expirado",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise credentials_exception
+        email: str = payload.get("sub")
+        user_id: int = payload.get("user_id")
+        if not email or not user_id:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    # Gera novo access_token
+    access_token = create_access_token({"sub": email, "user_id": user_id})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/posts", status_code=201)
@@ -158,6 +189,14 @@ def list_posts(current_user=Depends(get_current_user)):
     """
     urls = storage.list_user_posts(current_user["id"])
     return {"posts": urls}
+
+@app.delete("/posts/{post_url}", status_code=200)
+def delete_post(post_url: str = Path(..., description="URL do post para remover"), current_user=Depends(get_current_user)):
+    """Remove um post monitorado da lista do usuário."""
+    removed = storage.remove(post_url, current_user["id"])
+    if not removed:
+        raise HTTPException(status_code=404, detail="Post não encontrado na sua lista")
+    return {"msg": "Post removido", "url": post_url}
 
 @app.post("/config/webhook", status_code=200)
 def set_webhook(config: WebhookConfig, current_user=Depends(get_current_user)):
