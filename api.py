@@ -164,7 +164,7 @@ def set_webhook(config: WebhookConfig, current_user=Depends(get_current_user)):
     """Configura URL de webhook para notificações"""
     storage.set_webhook(current_user["id"], str(config.url))
     logging.info(f"Webhook configurado: {config.url}")
-    return {"url": str(config.url)}
+    return {"webhook": str(config.url)}
 
 @app.get("/config/webhook")
 def get_webhook(current_user=Depends(get_current_user)):
@@ -187,7 +187,7 @@ def verify_webhook(
     except Exception as e:
         logging.error(f"Erro ao verificar webhook: {e}")
         active = False
-    return {"url": url, "active": active}
+    return {"webhook": url, "active": active}
 
 def send_inactive_webhook(post_url: str, user_id: int):
     webhook_url = storage.get_webhook(user_id)
