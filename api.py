@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from urllib.parse import unquote
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -193,10 +194,11 @@ def list_posts(current_user=Depends(get_current_user)):
 @app.delete("/posts/{post_url}", status_code=200)
 def delete_post(post_url: str = Path(..., description="URL do post para remover"), current_user=Depends(get_current_user)):
     """Remove um post monitorado da lista do usuário."""
-    removed = storage.remove(post_url, current_user["id"])
+    decoded_url = unquote(post_url)
+    removed = storage.remove(decoded_url, current_user["id"])
     if not removed:
         raise HTTPException(status_code=404, detail="Post não encontrado na sua lista")
-    return {"msg": "Post removido", "url": post_url}
+    return {"msg": "Post removido", "url": decoded_url}
 
 @app.post("/config/webhook", status_code=200)
 def set_webhook(config: WebhookConfig, current_user=Depends(get_current_user)):
