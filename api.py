@@ -164,7 +164,7 @@ def set_webhook(config: WebhookConfig, current_user=Depends(get_current_user)):
     """Configura URL de webhook para notificações"""
     storage.set_webhook(current_user["id"], str(config.url))
     logging.info(f"Webhook configurado: {config.url}")
-    return {"webhook": str(config.url)}
+    return {"url": str(config.url)}
 
 @app.get("/config/webhook")
 def get_webhook(current_user=Depends(get_current_user)):
