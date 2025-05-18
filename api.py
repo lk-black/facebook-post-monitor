@@ -195,7 +195,18 @@ def list_posts(current_user=Depends(get_current_user)):
 def delete_post(post_url: str = Path(..., description="URL do post para remover"), current_user=Depends(get_current_user)):
     """Remove um post monitorado da lista do usuário."""
     decoded_url = unquote(post_url)
-    removed = storage.remove(decoded_url, current_user["id"])
+    # Normaliza para garantir que URLs com/sem barra final sejam tratadas como iguais
+    candidates = [decoded_url]
+    if decoded_url.endswith('/'):
+        candidates.append(decoded_url.rstrip('/'))
+    else:
+        candidates.append(decoded_url + '/')
+    removed = False
+    for url in candidates:
+        if storage.remove(url, current_user["id"]):
+            removed = True
+            decoded_url = url
+            break
     if not removed:
         raise HTTPException(status_code=404, detail="Post não encontrado na sua lista")
     return {"msg": "Post removido", "url": decoded_url}
