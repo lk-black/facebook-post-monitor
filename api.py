@@ -174,6 +174,21 @@ def get_webhook(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Webhook não configurado")
     return {"webhook": url}
 
+@app.get("/config/webhook/verify", status_code=200)
+def verify_webhook(current_user=Depends(get_current_user)):
+    """Verifica se o webhook configurado está funcionando corretamente."""
+    url = storage.get_webhook(current_user["id"])
+    if not url:
+        raise HTTPException(status_code=404, detail="Webhook não configurado")
+    try:
+        resp = requests.post(url, json={"type": "verification"})
+        if resp.status_code >= 400:
+            raise HTTPException(status_code=400, detail=f"Webhook respondeu com status {resp.status_code}")
+    except Exception as e:
+        logging.error(f"Erro ao verificar webhook: {e}")
+        raise HTTPException(status_code=400, detail="Falha ao conectar no webhook")
+    return {"status": "ok", "webhook": url}
+
 def send_inactive_webhook(post_url: str, user_id: int):
     webhook_url = storage.get_webhook(user_id)
     if not webhook_url:
